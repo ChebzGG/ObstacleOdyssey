@@ -1,37 +1,38 @@
+// Game.h
 #pragma once
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
 #include "Menu.h"
 #include "Level.h"
 #include "LevelSelect.h"
-#include "Statistics.h"
+#include "Settings.h"
 
 class Game {
 public:
     Game();
     ~Game();
     void run();
+    void showStatistics();
+    void returnToMainMenu();
+    void setMusicVolume(float volume);
+    static Game* getInstance();
 
 private:
     void processEvents();
     void update();
     void render();
     void showPauseMenu();
-    void restartLevel();
-    void completeLevel();
-    void loadPlayerTexture();
-    void returnToMainMenu();
-    void startLevel();
-    void showLevelResults(float time, int coins);
     void handleMenuState();
     void handleGameState();
     void handleLevelSelection();
-    void showStatistics();
+    void startLevel();
+    void showGameOverMenu();
+    void handleSettings();
+    void returnToSettings(); // Новый метод для возврата в настройки
 
+    Settings* settings;
     sf::RenderWindow window;
     sf::Music menuMusic;
-    sf::Texture playerTexture;
-    std::string currentSkin = "assets/images/icon0.png";
 
     Menu menu;
     Level* levels[5];
@@ -39,9 +40,16 @@ private:
     bool isPaused = false;
     bool inMenu = true;
 
+    sf::Texture pauseBackgroundTexture;
+    sf::Sprite pauseBackground;
+    sf::Texture resumeButtonTexture;
+    sf::Sprite resumeButton;
+    sf::Texture exitButtonTexture;
+    sf::Sprite exitButton;
+
     sf::Clock levelClock;
-    int levelAttempts[5] = { 0 };
-    int levelCoins[5] = { 0 };
-    float levelBestTimes[5] = { 0.0f };
-    int totalCoins = 0;
+
+    void handleMouseHover();
+    bool isMouseOver(const sf::Sprite& sprite) const;
+    static Game* instance; // Объявление
 };

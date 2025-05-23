@@ -1,2 +1,7 @@
 ﻿  Game.cpp
+  LevelSelect.cpp
+  Menu.cpp
+  Settings.cpp
+  main.cpp
+  Создание кода...
   6att.vcxproj -> D:\6att\x64\Debug\6att.exe

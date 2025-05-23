@@ -1,62 +1,71 @@
+//Level.h
 #pragma once
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
+#include <string>
 
-const int TILE_SIZE = 100;
-const int MAX_GRID_WIDTH = 100;
-const int MAX_GRID_HEIGHT = 50;
+const int SIZE_X = 1000;
+const int SIZE_Y = 10;
 
 class Level {
 public:
-    Level(const char* mapPath, const char* musicPath);
+    Level(const std::string& levelFile, const std::string& musicFile);
     ~Level();
 
     void load();
     void update();
     void render(sf::RenderWindow& window);
-
+    void restart();
     void playMusic();
     void stopMusic();
-    void restart();
-
     bool isCompleted() const;
     bool isFailed() const;
     int getCoinsCollected() const;
+    int getJumpCount() const;
+    void pauseMusic(); // Добавляем этот метод
 
-    void setPlayerTexture(sf::Texture* texture);
-
+    float getMusicVolume() const { return music.getVolume(); }
+    void setMusicVolume(float volume) { if (musicLoaded) music.setVolume(volume); }
 private:
-    int grid[MAX_GRID_HEIGHT][MAX_GRID_WIDTH];
-    bool coinCollected[MAX_GRID_HEIGHT][MAX_GRID_WIDTH];
+    void setLevel();
+    void setEndPosition();
+    void handleInput();
+    void handlePhysics();
+    void checkCollisions();
+    void resetPlayer();
 
-    sf::Music music;
-    bool completed = false;
-    bool failed = false;
-    const char* filePath;
-
-    sf::RectangleShape player;
-    sf::Vector2f velocity;
-    bool onGround = false;
-    bool gravityInverted = false;
-
-    sf::Vector2i startPosition;
-    sf::Vector2i finishPosition;
-
+    char level[SIZE_X][SIZE_Y]{};
+    int endPos = 0;
     int coinsCollected = 0;
 
-    sf::Texture tileTextures[10];
-    sf::Sprite tileSprite;
+    sf::Texture spikeTex, blockTex, shortSpikeTex, endwallTex, iconTex, jumpPadTex, orbTex, coinTex;
+    sf::Sprite spike, block, shortSpike, endwall, icon, jumpPad, orb, coin;
+    sf::RectangleShape iconHitbox, iconBlockHitbox;
+    sf::RectangleShape groundLine;
 
-    sf::SoundBuffer jumpBuffer;
-    sf::Sound jumpSound;
-    sf::SoundBuffer coinBuffer;
-    sf::Sound coinSound;
-    sf::SoundBuffer deathBuffer;
-    sf::Sound deathSound;
+    sf::Music music;
+    sf::SoundBuffer deathBuffer, coinBuffer, jumpBuffer;
+    sf::Sound death, coinSound, jumpSound;
 
-    void initializeGrid();
-    void loadFromFile();
-    void handleCollisions();
-    void loadTextures();
-    void loadSounds();
+    sf::Texture backgroundTexture;
+    sf::Sprite backgroundSprite;
+
+    float levelSpeed = 9.6f;
+    float levelPos = 0;
+    float jumpCount = 0;
+    float jumpHeight = 0;
+
+    int iconDefaultY;
+    int iconGroundDefaultY;
+    bool iconAlive = true;
+    bool isGrounded = true;
+    bool jumpCheck = false;
+    bool fall = false;
+    bool completed = false;
+    bool failed = false;
+
+    std::string levelPath;
+    std::string musicPath;
+
+    bool musicLoaded = false; // Флаг для проверки загрузки музыки
 };

@@ -40,8 +40,10 @@ private:
     sf::Texture statsTexture;
     sf::Sprite statsButton;
 
-    sf::Music menuMusic;
-
     int selectedOption = -1;
     int chosenLevel = -1;
+
+    sf::SoundBuffer hoverBuffer;
+    sf::Sound hoverSound;
+    bool wasHovering = false;
 };

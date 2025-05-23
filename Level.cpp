@@ -2,98 +2,329 @@
 #include "Level.h"
 #include <fstream>
 #include <iostream>
+#include <cmath>
 
-Level::Level(const char* mapPath, const char* musicPath) : filePath(mapPath) {
-    initializeGrid();
+Level::Level(const std::string& levelFile, const std::string& musicFile)
+    : levelPath(levelFile), musicPath(musicFile) {
+
+    int levelNumber = 1;
+    if (levelPath == "levels/level1.txt") levelNumber = 1;
+    else if (levelPath == "levels/level2.txt") levelNumber = 2;
+    else if (levelPath == "levels/level3.txt") levelNumber = 3;
+    else if (levelPath == "levels/level4.txt") levelNumber = 4;
+    else if (levelPath == "levels/level5.txt") levelNumber = 5;
+
+    std::string bgPath = "assets/images/level" + std::to_string(levelNumber) + ".png";
+    std::string mapPath = "levels/level" + std::to_string(levelNumber) + ".txt";
+    std::string musicPathLocal = "assets/music/level" + std::to_string(levelNumber) + ".ogg";
+
+    backgroundTexture.loadFromFile(bgPath);
+    backgroundSprite.setTexture(backgroundTexture);
+    backgroundSprite.setScale(1.0f, 1.0f);
+
+    levelPath = mapPath;
     load();
-    loadTextures();
-    loadSounds();
 
-    if (!music.openFromFile(musicPath)) {
-        std::cerr << "Failed to load music: " << musicPath << "\n";
+    if (music.openFromFile(musicPathLocal)) {
+        musicLoaded = true;
     }
-    music.setLoop(true);
+    else {
+        std::cerr << "Failed to load level music: " << musicPathLocal << std::endl;
+    }
 
-    player.setSize(sf::Vector2f(TILE_SIZE - 4, TILE_SIZE - 4));
-    player.setFillColor(sf::Color::Red);
+    iconTex.loadFromFile("assets/images/icon.png");
+    icon.setTexture(iconTex);
+    icon.setScale(1.0f, 1.0f);
+    icon.setOrigin(icon.getLocalBounds().width / 2.f, icon.getLocalBounds().height / 2.f);
+    icon.setPosition(200.f, 880.f);
+
+    iconHitbox.setSize(sf::Vector2f(icon.getGlobalBounds().width, icon.getGlobalBounds().height));
+    iconHitbox.setFillColor(sf::Color::Transparent);
+    iconHitbox.setOrigin(iconHitbox.getSize() / 2.f);
+    iconHitbox.setPosition(icon.getPosition());
+
+    iconBlockHitbox.setSize(iconHitbox.getSize() / 5.f);
+    iconBlockHitbox.setFillColor(sf::Color::Transparent);
+    iconBlockHitbox.setOrigin(iconBlockHitbox.getSize() / 2.f);
+    iconBlockHitbox.setPosition(icon.getPosition());
+
+    iconDefaultY = static_cast<int>(icon.getPosition().y);
+    iconGroundDefaultY = iconDefaultY;
+
+    spikeTex.loadFromFile("assets/images/default spike.png");
+    spike.setTexture(spikeTex);
+    spike.setScale(0.5f, 0.5f);
+    spike.setOrigin(spike.getLocalBounds().width / 2.f, spike.getLocalBounds().height / 2.f);
+
+    shortSpikeTex.loadFromFile("assets/images/short spike.png");
+    shortSpike.setTexture(shortSpikeTex);
+    shortSpike.setScale(0.5f, 0.5f);
+    shortSpike.setOrigin(shortSpike.getLocalBounds().width / 2.f, shortSpike.getLocalBounds().height / 2.f);
+
+    blockTex.loadFromFile("assets/images/default block.png");
+    block.setTexture(blockTex);
+    block.setScale(0.48f, 0.48f);
+    block.setOrigin(40.f, 61.f);
+
+    endwallTex.loadFromFile("assets/images/endwall.png");
+    endwall.setTexture(endwallTex);
+    endwall.setOrigin(endwall.getLocalBounds().width, endwall.getLocalBounds().height);
+
+    jumpPadTex.loadFromFile("assets/images/jump_pad.png");
+    jumpPad.setTexture(jumpPadTex);
+    jumpPad.setScale(0.5f, 0.5f);
+    jumpPad.setOrigin(jumpPad.getLocalBounds().width / 2.f, jumpPad.getLocalBounds().height / 2.f);
+
+    orbTex.loadFromFile("assets/images/orb.png");
+    orb.setTexture(orbTex);
+    orb.setScale(0.5f, 0.5f);
+    orb.setOrigin(orb.getLocalBounds().width / 2.f, orb.getLocalBounds().height / 2.f);
+
+    coinTex.loadFromFile("assets/images/coin.png");
+    coin.setTexture(coinTex);
+    coin.setScale(0.5f, 0.5f);
+    coin.setOrigin(coin.getLocalBounds().width / 2.f, coin.getLocalBounds().height / 2.f);
+
+    groundLine.setSize(sf::Vector2f(1920.f, 3.f));
+    groundLine.setPosition(0.f, icon.getGlobalBounds().top + icon.getGlobalBounds().height);
+
+    deathBuffer.loadFromFile("assets/sounds/death.ogg");
+    death.setBuffer(deathBuffer);
+
+    coinBuffer.loadFromFile("assets/sounds/coin.ogg");
+    coinSound.setBuffer(coinBuffer);
+
+    jumpBuffer.loadFromFile("assets/sounds/jump.ogg");
+    jumpSound.setBuffer(jumpBuffer);
 }
 
 Level::~Level() {
-    music.stop();
-}
-
-void Level::loadSounds() {
-    if (!jumpBuffer.loadFromFile("assets/sounds/jump.ogg")) {
-        std::cerr << "Failed to load jump sound\n";
-    }
-    jumpSound.setBuffer(jumpBuffer);
-
-    if (!coinBuffer.loadFromFile("assets/sounds/coin.ogg")) {
-        std::cerr << "Failed to load coin sound\n";
-    }
-    coinSound.setBuffer(coinBuffer);
-
-    if (!deathBuffer.loadFromFile("assets/sounds/death.ogg")) {
-        std::cerr << "Failed to load death sound\n";
-    }
-    deathSound.setBuffer(deathBuffer);
-}
-
-void Level::initializeGrid() {
-    for (int y = 0; y < MAX_GRID_HEIGHT; ++y) {
-        for (int x = 0; x < MAX_GRID_WIDTH; ++x) {
-            grid[y][x] = 0;
-            coinCollected[y][x] = false;
-        }
+    if (musicLoaded) {
+        music.stop();
     }
 }
 
 void Level::load() {
-    std::ifstream file(filePath);
+    setLevel();
+    setEndPosition();
+    resetPlayer();
+}
+
+void Level::setLevel() {
+    std::ifstream file(levelPath);
     if (!file.is_open()) {
-        std::cerr << "Failed to open level file: " << filePath << "\n";
+        std::cerr << "Failed to open level file: " << levelPath << std::endl;
         return;
     }
+    char input;
+    for (int i = 0; i < SIZE_X; i++) {
+        for (int j = 0; j < SIZE_Y; j++) {
+            file >> input;
+            level[i][j] = input;
+        }
+    }
+    file.close();
+}
 
-    std::string line;
-    int y = 0;
-    while (std::getline(file, line) && y < MAX_GRID_HEIGHT) {
-        for (int x = 0; x < line.size() && x < MAX_GRID_WIDTH; ++x) {
-            char ch = line[x];
-            if (ch >= '0' && ch <= '9') {
-                grid[y][x] = ch - '0';
-
-                if (grid[y][x] == 8) {
-                    startPosition = { x, y };
-                    player.setPosition(x * TILE_SIZE, y * TILE_SIZE);
-                }
-                if (grid[y][x] == 9) {
-                    finishPosition = { x, y };
-                }
+void Level::setEndPosition() {
+    for (int i = 0; i < SIZE_X; i++) {
+        for (int j = 0; j < SIZE_Y; j++) {
+            if (level[i][j] == 's' || level[i][j] == 'b' || level[i][j] == 'h' || level[i][j] == 'd' || level[i][j] == 'o') {
+                endPos = i;
             }
         }
-        ++y;
     }
 }
 
-void Level::loadTextures() {
-    std::string names[10] = {
-        "", "block.png", "spike.png", "jumppad.png", "orb.png",
-        "portal.png", "coin.png", "", "start.png", "finish.png"
-    };
+void Level::update() {
+    if (completed || failed) return;
 
-    for (int i = 1; i <= 9; ++i) {
-        if (names[i] != "") {
-            if (!tileTextures[i].loadFromFile("assets/images/" + names[i])) {
-                std::cerr << "Failed to load " << names[i] << "\n";
+    handleInput();
+    handlePhysics();
+    checkCollisions();
+
+    if (icon.getPosition().x >= 1920 + 50) {
+        completed = true;
+        stopMusic();
+    }
+}
+
+void Level::handleInput() {
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up) || sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
+        // Check for orb collision when jumping
+        for (int i = 0; i < SIZE_X; i++) {
+            for (int j = 0; j < SIZE_Y; j++) {
+                if (level[i][j] == 'o') {
+                    float drawX = (i + 1) * icon.getGlobalBounds().width - levelPos + icon.getPosition().x;
+                    float drawY = iconGroundDefaultY - j * icon.getGlobalBounds().height;
+                    orb.setPosition(drawX + 10, drawY);
+
+                    if (orb.getGlobalBounds().intersects(iconHitbox.getGlobalBounds())) {
+                        jumpCheck = true;
+                        jumpCount = 0; // Reset jump for higher jump
+                        jumpSound.play();
+                        level[i][j] = '-'; // Remove orb after use
+                    }
+                }
+            }
+        }
+
+        if (isGrounded) {
+            jumpCheck = true;
+        }
+    }
+}
+
+void Level::handlePhysics() {
+    if (jumpCheck && iconAlive) {
+        if (jumpCount++ == 0) isGrounded = false;
+        jumpHeight = 1.0f * (0 - jumpCount) * (jumpCount - 26);
+    }
+    else if (!isGrounded) {
+        jumpCount++;
+        jumpHeight = 0.8f * (0 - jumpCount) * jumpCount;
+    }
+    icon.setPosition(icon.getPosition().x, iconDefaultY - jumpHeight);
+    iconHitbox.setPosition(icon.getPosition());
+    iconBlockHitbox.setPosition(icon.getPosition());
+
+    if (isGrounded) {
+        jumpCheck = false;
+        jumpCount = 0;
+        icon.setRotation(0);
+    }
+    else {
+        icon.rotate(180.0f / 26);
+    }
+
+    levelPos += levelSpeed;
+}
+
+void Level::checkCollisions() {
+    for (int i = 0; i < SIZE_X; i++) {
+        for (int j = 0; j < SIZE_Y; j++) {
+            float drawX = (i + 1) * icon.getGlobalBounds().width - levelPos + icon.getPosition().x;
+            float drawY = iconGroundDefaultY - j * icon.getGlobalBounds().height;
+
+            if (level[i][j] == 's') {
+                spike.setPosition(drawX + 10, drawY);
+                if (spike.getGlobalBounds().intersects(iconHitbox.getGlobalBounds())) {
+                    iconAlive = false;
+                    failed = true;
+                    stopMusic();
+                    death.play();
+                    return;
+                }
+            }
+            else if (level[i][j] == 'b') {
+                block.setPosition(drawX + 10, drawY);
+                if (block.getGlobalBounds().intersects(iconBlockHitbox.getGlobalBounds())) {
+                    iconAlive = false;
+                    failed = true;
+                    stopMusic();
+                    death.play();
+                    return;
+                }
+                if (block.getGlobalBounds().intersects(iconHitbox.getGlobalBounds())) {
+                    isGrounded = true;
+                    int iconDefaultY = static_cast<int>(std::round(icon.getPosition().y));
+                }
+            }
+            else if (level[i][j] == 'h') {
+                shortSpike.setPosition(drawX + 10, drawY + 10);
+                if (shortSpike.getGlobalBounds().intersects(iconHitbox.getGlobalBounds())) {
+                    iconAlive = false;
+                    failed = true;
+                    stopMusic();
+                    death.play();
+                    return;
+                }
+            }
+            else if (level[i][j] == 'd') {
+                jumpPad.setPosition(drawX + 10, drawY);
+                if (jumpPad.getGlobalBounds().intersects(iconHitbox.getGlobalBounds())) {
+                    jumpCheck = true;
+                    jumpCount = -10; // Big jump
+                    jumpSound.play();
+                }
+            }
+            else if (level[i][j] == 'c') {
+                coin.setPosition(drawX + 10, drawY);
+                if (coin.getGlobalBounds().intersects(iconHitbox.getGlobalBounds())) {
+                    level[i][j] = '-'; // Remove coin
+                    coinsCollected++;
+                    coinSound.play();
+                }
             }
         }
     }
 
-    tileSprite.setScale(
-        static_cast<float>(TILE_SIZE) / tileTextures[1].getSize().x,
-        static_cast<float>(TILE_SIZE) / tileTextures[1].getSize().y
-    );
+    if (icon.getPosition().y > 1080 || icon.getPosition().y < 0) {
+        failed = true;
+        stopMusic();
+    }
+}
+
+void Level::render(sf::RenderWindow& window) {
+    window.draw(backgroundSprite);
+
+    for (int i = 0; i < SIZE_X; i++) {
+        for (int j = 0; j < SIZE_Y; j++) {
+            float drawX = (i + 1) * icon.getGlobalBounds().width - levelPos + icon.getPosition().x;
+            float drawY = iconGroundDefaultY - j * icon.getGlobalBounds().height;
+
+            if (level[i][j] == 's') {
+                spike.setPosition(drawX + 10, drawY);
+                window.draw(spike);
+            }
+            else if (level[i][j] == 'b') {
+                block.setPosition(drawX + 10, drawY);
+                window.draw(block);
+            }
+            else if (level[i][j] == 'h') {
+                shortSpike.setPosition(drawX + 10, drawY + 10);
+                window.draw(shortSpike);
+            }
+            else if (level[i][j] == 'd') {
+                jumpPad.setPosition(drawX + 10, drawY);
+                window.draw(jumpPad);
+            }
+            else if (level[i][j] == 'o') {
+                orb.setPosition(drawX + 10, drawY);
+                window.draw(orb);
+            }
+            else if (level[i][j] == 'c') {
+                coin.setPosition(drawX + 10, drawY);
+                window.draw(coin);
+            }
+
+            if (i == endPos && j == 0) {
+                endwall.setPosition(drawX + 1145, iconGroundDefaultY + icon.getGlobalBounds().height / 2);
+                window.draw(endwall);
+            }
+        }
+    }
+    window.draw(icon);
+}
+
+void Level::restart() {
+    resetPlayer();
+    load();
+    playMusic();
+    failed = completed = false;
+    coinsCollected = 0;
+}
+
+void Level::resetPlayer() {
+    icon.setPosition(200, 880);
+    iconDefaultY = 880;
+    iconHitbox.setPosition(icon.getPosition());
+    iconBlockHitbox.setPosition(icon.getPosition());
+    jumpCount = jumpHeight = 0;
+    levelPos = 0;
+    isGrounded = true;
+    jumpCheck = false;
+    iconAlive = true;
 }
 
 void Level::playMusic() {
@@ -101,19 +332,9 @@ void Level::playMusic() {
 }
 
 void Level::stopMusic() {
-    music.stop();
-}
-
-void Level::restart() {
-    player.setPosition(startPosition.x * TILE_SIZE, startPosition.y * TILE_SIZE);
-    velocity = { 0.f, 0.f };
-    completed = false;
-    failed = false;
-    gravityInverted = false;
-    coinsCollected = 0;
-    initializeGrid();
-    load();
-    playMusic();
+    if (musicLoaded && music.getStatus() == sf::Music::Playing) {
+        music.stop();
+    }
 }
 
 bool Level::isCompleted() const {
@@ -128,136 +349,14 @@ int Level::getCoinsCollected() const {
     return coinsCollected;
 }
 
-void Level::update() {
-    if (completed || failed) return;
 
-    const float gravity = gravityInverted ? -0.5f : 0.5f;
-    const float jumpVelocity = gravityInverted ? 10.f : -10.f;
-
-    velocity.y += gravity;
-
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && onGround) {
-        velocity.y = jumpVelocity;
-        onGround = false;
-    }
-
-    float moveSpeed = 5.f;
-    velocity.x = 0.f;
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-        velocity.x = moveSpeed;
-    }
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-        velocity.x = -moveSpeed;
-    }
-
-    player.move(velocity.x, velocity.y);
-    handleCollisions();
-
-    sf::Vector2f pos = player.getPosition();
-    int px = static_cast<int>(pos.x) / TILE_SIZE;
-    int py = static_cast<int>(pos.y) / TILE_SIZE;
-
-    if (px == finishPosition.x && py == finishPosition.y) {
-        completed = true;
-        stopMusic();
-    }
-
-    if (pos.y > MAX_GRID_HEIGHT * TILE_SIZE || pos.y < 0) {
-        failed = true;
-        stopMusic();
+void Level::pauseMusic() {
+    if (musicLoaded) {
+        music.pause();
     }
 }
 
-void Level::handleCollisions() {
-    sf::Vector2f pos = player.getPosition();
-    int px = static_cast<int>(pos.x) / TILE_SIZE;
-    int py = static_cast<int>(pos.y + (gravityInverted ? 0 : player.getSize().y)) / TILE_SIZE;
 
-    if (px < 0 || py < 0 || px >= MAX_GRID_WIDTH || py >= MAX_GRID_HEIGHT)
-        return;
-
-    int block = grid[py][px];
-
-    switch (block) {
-    case 1:
-        onGround = true;
-        velocity.y = 0;
-        player.setPosition(pos.x, gravityInverted ? (py + 1) * TILE_SIZE : py * TILE_SIZE - player.getSize().y);
-        break;
-
-    case 2:
-        failed = true;
-        deathSound.play();
-        stopMusic();
-        break;
-
-    case 3:
-        velocity.y = gravityInverted ? 15.f : -15.f;
-        jumpSound.play();
-        break;
-
-    case 4:
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
-            velocity.y = gravityInverted ? 15.f : -15.f;
-            jumpSound.play();
-        }
-        break;
-
-    case 5:
-        gravityInverted = !gravityInverted;
-        velocity.y = 0;
-        break;
-
-    case 6:
-        if (!coinCollected[py][px]) {
-            coinCollected[py][px] = true;
-            coinsCollected++;
-            coinSound.play();
-            grid[py][px] = 0;
-        }
-        break;
-
-    default:
-        onGround = false;
-        break;
-    }
-}
-
-void Level::render(sf::RenderWindow& window) {
-    window.clear(sf::Color::Black);
-
-    sf::Sprite tileSprite;
-
-    for (int y = 0; y < MAX_GRID_HEIGHT; ++y) {
-        for (int x = 0; x < MAX_GRID_WIDTH; ++x) {
-            int type = grid[y][x];
-            if (type == 0) continue;
-
-            tileSprite.setPosition(x * TILE_SIZE, y * TILE_SIZE);
-
-            switch (type) {
-            case 1: tileSprite.setTexture(tileTextures[1]); break;
-            case 2: tileSprite.setTexture(tileTextures[2]); break;
-            case 3: tileSprite.setTexture(tileTextures[3]); break;
-            case 4: tileSprite.setTexture(tileTextures[4]); break;
-            case 5: tileSprite.setTexture(tileTextures[5]); break;
-            case 6: tileSprite.setTexture(tileTextures[6]); break;
-            case 8: tileSprite.setTexture(tileTextures[8]); break;
-            case 9: tileSprite.setTexture(tileTextures[9]); break;
-            }
-
-            window.draw(tileSprite);
-        }
-    }
-
-    window.draw(player);
-}
-
-void Level::setPlayerTexture(sf::Texture* texture) {
-    player.setTexture(texture);
-    player.setTextureRect(sf::IntRect(0, 0, texture->getSize().x, texture->getSize().y));
-    player.setScale(
-        (TILE_SIZE - 4) / static_cast<float>(texture->getSize().x),
-        (TILE_SIZE - 4) / static_cast<float>(texture->getSize().y)
-    );
+int Level::getJumpCount() const {
+    return static_cast<int>(jumpCount);
 }
