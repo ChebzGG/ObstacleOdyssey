@@ -2,7 +2,7 @@
 bin/
 obj/
 *.exe
-*.dll
+
 *.suo
 *.user
 *.aps
