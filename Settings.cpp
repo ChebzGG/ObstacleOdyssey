@@ -3,75 +3,57 @@
 #include <fstream>
 #include "Settings.h"
 #include "Game.h"
+using namespace std;
+using namespace sf;
 
-Settings::Settings(sf::RenderWindow& win)
+Settings::Settings(RenderWindow& win)
     : window(win) {
-    // Загрузка фона
-    if (!backgroundTexture.loadFromFile("assets/images/menu.png")) {
-        std::cerr << "Failed to load settings background" << std::endl;
-    }
+
+    backgroundTexture.loadFromFile("assets/images/BGsettings.png");
     background.setTexture(backgroundTexture);
 
-    // Кнопка назад
-    if (!backTexture.loadFromFile("assets/images/back.png")) {
-        std::cerr << "Failed to load back button texture" << std::endl;
-    }
+
+    logoTexture.loadFromFile("assets/images/settings.png");
+    logo.setTexture(logoTexture);
+    logo.setPosition(470.f, 50.f);
+
+    backTexture.loadFromFile("assets/images/back.png");
     backButton.setTexture(backTexture);
     backButton.setPosition(20.f, 20.f);
     backButton.setScale(0.18f, 0.18f);
 
-    // Кнопка сброса
-    if (!resetTexture.loadFromFile("assets/images/resetbtn.png")) {
-        std::cerr << "Failed to load reset button texture" << std::endl;
+    loadSettings();
+
+    for (int i = 0; i < 6; ++i) {
+        volumeTextures[i].loadFromFile("assets/images/set" + to_string(i) + ".png");
+        
+        musicVolumeButtons[i].setTexture(volumeTextures[i]);
+        musicVolumeButtons[i].setPosition(500.f + i * 225.f, 250.f);
+        musicVolumeButtons[i].setScale(200.f / volumeTextures[i].getSize().x,
+            200.f / volumeTextures[i].getSize().y);
+
+        sfxVolumeButtons[i].setTexture(volumeTextures[i]);
+        sfxVolumeButtons[i].setPosition(500.f + i * 225.f, 480.f);
+        sfxVolumeButtons[i].setScale(200.f / volumeTextures[i].getSize().x,
+            200.f / volumeTextures[i].getSize().y);
     }
+
+    resetTexture.loadFromFile("assets/images/resetbtn.png");
     resetButton.setTexture(resetTexture);
     resetButton.setPosition(760.f, 700.f);
     resetButton.setScale(0.5f, 0.5f);
 
-    // Загрузка шрифта
-    if (!font.loadFromFile("assets/fonts/arial.ttf")) {
-        std::cerr << "Failed to load font for settings" << std::endl;
-    }
+    musicTexture.loadFromFile("assets/images/music.png");
+    musicButton.setTexture(musicTexture);
+    musicButton.setPosition(20.f, 300.f);
+    musicButton.setScale(0.6f, 0.6f);
 
-    // Заголовки
-    musicLabel.setFont(font);
-    musicLabel.setString("Music:");
-    musicLabel.setCharacterSize(40);
-    musicLabel.setPosition(50.f, 250.f);  // Сдвинуто влево
-    musicLabel.setFillColor(sf::Color::White);
-
-    sfxLabel.setFont(font);
-    sfxLabel.setString("SFX:");
-    sfxLabel.setCharacterSize(40);
-    sfxLabel.setPosition(50.f, 550.f);   // Сдвинуто влево
-    sfxLabel.setFillColor(sf::Color::White);
-
-    // Загрузка настроек из файла при старте
-    loadSettings();
-
-    // Загрузка кнопок громкости
-    for (int i = 0; i < 6; ++i) {
-        if (!volumeTextures[i].loadFromFile("assets/images/set" + std::to_string(i) + ".png")) {
-            std::cerr << "Failed to load volume button " << i << std::endl;
-        }
-
-        // Кнопки для музыки
-        musicVolumeButtons[i].setTexture(volumeTextures[i]);
-        musicVolumeButtons[i].setPosition(300.f + i * 225.f, 150.f);
-        musicVolumeButtons[i].setScale(200.f / volumeTextures[i].getSize().x,
-            200.f / volumeTextures[i].getSize().y);
-
-        // Кнопки для SFX
-        sfxVolumeButtons[i].setTexture(volumeTextures[i]);
-        sfxVolumeButtons[i].setPosition(300.f + i * 225.f, 450.f);
-        sfxVolumeButtons[i].setScale(200.f / volumeTextures[i].getSize().x,
-            200.f / volumeTextures[i].getSize().y);
-
-
-    }
+    sfxTexture.loadFromFile("assets/images/sfx.png");
+    sfxButton.setTexture(sfxTexture);
+    sfxButton.setPosition(20.f, 530.f);
+    sfxButton.setScale(0.6f, 0.6f);
 
     updateVolumeButtons();
-
 
     hoverBuffer.loadFromFile("assets/sounds/hover.ogg");
     hoverSound.setBuffer(hoverBuffer);
@@ -82,8 +64,8 @@ Settings::~Settings() {
 }
 
 void Settings::run() {
-    shouldExit = false; // Сбрасываем флаг при запуске
-    while (window.isOpen() && !shouldExit) { // Добавляем проверку флага
+    shouldExit = false;
+    while (window.isOpen() && !shouldExit) {
         processEvents();
         update();
         render();
@@ -91,14 +73,14 @@ void Settings::run() {
 }
 
 void Settings::processEvents() {
-    sf::Event event;
+    Event event;
     while (window.pollEvent(event)) {
-        if (event.type == sf::Event::Closed) {
+        if (event.type == Event::Closed) {
             window.close();
         }
 
-        if (event.type == sf::Event::MouseButtonPressed) {
-            if (event.mouseButton.button == sf::Mouse::Left) {
+        if (event.type == Event::MouseButtonPressed) {
+            if (event.mouseButton.button == Mouse::Left) {
                 if (isMouseOver(backButton)) {
                     returnToMainMenu();
                     return;
@@ -107,14 +89,12 @@ void Settings::processEvents() {
                     resetSettings();
                 }
 
-                // Обработка изменения громкости музыки
                 for (int i = 0; i < 6; ++i) {
                     if (isMouseOver(musicVolumeButtons[i])) {
                         musicVolume = i * 20.f;
                         updateVolumeButtons();
                         saveSettings();
 
-                        // Применяем новую громкость к игре
                         if (Game* game = Game::getInstance()) {
                             game->setMusicVolume(musicVolume);
                         }
@@ -139,7 +119,7 @@ float Settings::getMusicVolume() const {
 }
 
 float Settings::getGameMusicVolume() const {
-    return musicVolume; // То же самое, что и getMusicVolume()
+    return musicVolume; 
 }
 
 float Settings::getSFXVolume() const {
@@ -156,7 +136,6 @@ void Settings::setSFXVolume(float volume) {
     updateVolumeButtons();
 }
 
-
 void Settings::update() {
     handleMouseHover();
 }
@@ -166,9 +145,9 @@ void Settings::render() {
     window.draw(background);
     window.draw(backButton);
     window.draw(resetButton);
-
-    window.draw(musicLabel);
-    window.draw(sfxLabel);
+    window.draw(musicButton);
+    window.draw(sfxButton);
+    window.draw(logo);
 
     for (int i = 0; i < 6; ++i) {
         window.draw(musicVolumeButtons[i]);
@@ -180,76 +159,151 @@ void Settings::render() {
 }
 
 void Settings::updateVolumeButtons() {
-    // Обновляем состояние кнопок громкости для музыки
     for (int i = 0; i < 6; ++i) {
-        musicVolumeButtons[i].setColor(i * 20 <= musicVolume ? sf::Color::White : sf::Color(100, 100, 100));
+        musicVolumeButtons[i].setColor(i * 20 <= musicVolume ? Color::White : Color(100, 100, 100));
     }
 
-    // Обновляем состояние кнопок громкости для SFX
     for (int i = 0; i < 6; ++i) {
-        sfxVolumeButtons[i].setColor(i * 20 <= sfxVolume ? sf::Color::White : sf::Color(100, 100, 100));
+        sfxVolumeButtons[i].setColor(i * 20 <= sfxVolume ? Color::White : Color(100, 100, 100));
     }
 }
 
 void Settings::loadSettings() {
-    std::ifstream file("settings.cfg");
+    ifstream file("settings.txt");
     if (file.is_open()) {
-        file >> musicVolume >> sfxVolume;
+        file >> musicVolume >> sfxVolume >> attempts >> jumps >> levelsCompleted >> coinsCollected >> coinsCustom;
+        for (int i = 0; i < 9; ++i) {
+            file >> iconStates[i];
+        }
         file.close();
+    }
+    else {
+        resetSettings();
+    }
+
+    if (Game* game = Game::getInstance()) {
+        game->setMusicVolume(musicVolume);
     }
 }
 
 void Settings::saveSettings() {
-    std::ofstream file("settings.cfg");
+    ofstream file("settings.txt");
     if (file.is_open()) {
-        file << musicVolume << " " << sfxVolume;
-        file.close();
+        file << musicVolume << " "
+            << sfxVolume << " "
+            << attempts << " "
+            << jumps << " "
+            << levelsCompleted << " "
+            << coinsCollected << " "
+            << coinsCustom;
+
     }
 }
 
 void Settings::resetSettings() {
     musicVolume = 100.f;
     sfxVolume = 100.f;
+    attempts = 0;
+    jumps = 0;
+    levelsCompleted = 0;
+    coinsCollected = 0;
+    coinsCustom = 0;
+
     updateVolumeButtons();
     saveSettings();
+}
+
+void Settings::resetIcons() {
+    ofstream file("icon.txt");
+    if (file.is_open()) {
+        file << "2 0 0 0 0 0 0 0 0";
+        file.close();
+    }
 }
 
 void Settings::handleMouseHover() {
     bool isHoveringNow = false;
 
     if (isMouseOver(backButton)) {
-        backButton.setColor(sf::Color(255, 200, 255, 255));
+        backButton.setColor(Color(255, 200, 255, 255));
         isHoveringNow = true;
     }
     else {
-        backButton.setColor(sf::Color::White);
+        backButton.setColor(Color::White);
     }
 
     if (isMouseOver(resetButton)) {
-        resetButton.setColor(sf::Color(255, 200, 255, 255));
+        resetButton.setColor(Color(255, 200, 255, 255));
         isHoveringNow = true;
     }
     else {
-        resetButton.setColor(sf::Color::White);
+        resetButton.setColor(Color::White);
     }
 
-    // Проверка для кнопок громкости
     for (int i = 0; i < 6; ++i) {
-        if (isMouseOver(musicVolumeButtons[i]) || isMouseOver(sfxVolumeButtons[i])) {
+        if (isMouseOver(musicVolumeButtons[i])) {
+            musicVolumeButtons[i].setColor(Color(255, 200, 255, 255));
             isHoveringNow = true;
-            break;
+        }
+        else {
+            musicVolumeButtons[i].setColor(i * 20 <= musicVolume ? Color::White : Color(100, 100, 100));
         }
     }
 
-    // Воспроизводим звук только при новом наведении
-    if (isHoveringNow && !wasHovering) {
-        hoverSound.play();
+    for (int i = 0; i < 6; ++i) {
+        if (isMouseOver(sfxVolumeButtons[i])) {
+            sfxVolumeButtons[i].setColor(Color(255, 200, 255, 255));
+            isHoveringNow = true;
+        }
+        else {
+            sfxVolumeButtons[i].setColor(i * 20 <= sfxVolume ? Color::White : Color(100, 100, 100));
+        }
     }
 
-    wasHovering = isHoveringNow; // Обновляем флаг
+    if (isHoveringNow && !wasHovering) {
+        float sfxVolume = 100.f;
+        if (Game::getInstance() && Game::getInstance()->getSettings()) {
+            sfxVolume = Game::getInstance()->getSettings()->getSFXVolume();
+        }
+        hoverSounds[hoverSoundIndex].setBuffer(hoverBuffer);
+        hoverSounds[hoverSoundIndex].setVolume(sfxVolume);
+        hoverSounds[hoverSoundIndex].play();
+        hoverSoundIndex = (hoverSoundIndex + 1) % HOVER_SOUND_POOL;
+    }
+    wasHovering = isHoveringNow; 
 }
 
-bool Settings::isMouseOver(const sf::Sprite& sprite) const {
-    sf::FloatRect bounds = sprite.getGlobalBounds();
-    return bounds.contains(static_cast<sf::Vector2f>(sf::Mouse::getPosition(window)));
+bool Settings::isMouseOver(const Sprite& sprite) const {
+    FloatRect bounds = sprite.getGlobalBounds();
+    return bounds.contains(Vector2f(Mouse::getPosition(window)));
 }
+
+void Settings::incrementAttempts() {
+    attempts++;
+    saveSettings(); 
+}
+
+void Settings::incrementJumps() {
+    jumps++;
+    saveSettings();
+}
+
+void Settings::incrementLevels() {
+    levelsCompleted++;
+    saveSettings();
+}
+
+void Settings::addCoins(int amount) {
+    coinsCollected += amount;
+    saveSettings();
+}
+
+void Settings::addCustomCoins(int amount) {
+    coinsCustom += amount;
+    saveSettings();
+}
+
+int Settings::getCustomCoins() const {
+    return coinsCustom; 
+}
+

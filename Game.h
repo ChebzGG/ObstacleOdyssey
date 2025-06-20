@@ -12,10 +12,11 @@ public:
     Game();
     ~Game();
     void run();
-    void showStatistics();
+    void showVictoryMenu();
     void returnToMainMenu();
     void setMusicVolume(float volume);
     static Game* getInstance();
+    Settings* getSettings();
 
 private:
     void processEvents();
@@ -28,12 +29,12 @@ private:
     void startLevel();
     void showGameOverMenu();
     void handleSettings();
-    void returnToSettings(); // Новый метод для возврата в настройки
+    void returnToSettings();
 
     Settings* settings;
     sf::RenderWindow window;
     sf::Music menuMusic;
-
+    
     Menu menu;
     Level* levels[5];
     int currentLevel = -1;
@@ -51,5 +52,5 @@ private:
 
     void handleMouseHover();
     bool isMouseOver(const sf::Sprite& sprite) const;
-    static Game* instance; // Объявление
+    static Game* instance; 
 };

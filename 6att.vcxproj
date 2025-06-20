@@ -131,13 +131,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Custom.cpp" />
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="Level.cpp" />
     <ClCompile Include="LevelSelect.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Menu.cpp" />
     <ClCompile Include="Settings.cpp" />
-    <ClCompile Include="Statistics.cpp" />
+    <ClCompile Include="Stats.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="openal32.dll" />
@@ -153,12 +154,13 @@
     <None Include="sfml-window-d-2.dll" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Custom.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="Level.h" />
     <ClInclude Include="LevelSelect.h" />
     <ClInclude Include="Menu.h" />
     <ClInclude Include="Settings.h" />
-    <ClInclude Include="Statistics.h" />
+    <ClInclude Include="Stats.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="assets\images\1.png" />
@@ -174,6 +176,10 @@
     <Image Include="assets\images\menu.png" />
     <Image Include="assets\images\play.png" />
     <Image Include="assets\images\settings.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="assets\levels\leve1.txt" />
+    <Text Include="wHD.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

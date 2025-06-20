@@ -1,6 +1,7 @@
 // LevelSelect.h
+#pragma once
 #include <SFML/Graphics.hpp>
-#include <SFML/Audio.hpp> // Добавляем это
+#include <SFML/Audio.hpp>
 
 class LevelSelect {
 public:
@@ -27,10 +28,13 @@ private:
     sf::Texture lvlTexture;
     sf::Sprite lvl;
 
-    // Звуковые объекты
     sf::SoundBuffer hoverBuffer;
     sf::Sound hoverSound;
     bool wasHovering = false;
 
     int selectedLevel = 0;
+
+    static const int HOVER_SOUND_POOL = 15;
+    sf::Sound hoverSounds[HOVER_SOUND_POOL];
+    int hoverSoundIndex = 0;
 };

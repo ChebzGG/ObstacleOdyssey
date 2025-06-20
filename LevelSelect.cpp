@@ -1,14 +1,18 @@
 // LevelSelect.cpp
 #include "LevelSelect.h"
 #include <iostream>
+#include "Game.h"
+#include "Settings.h"
+using namespace std;
+using namespace sf;
 
-LevelSelect::LevelSelect(sf::RenderWindow& win) : window(win) {
-    backgroundTexture.loadFromFile("assets/images/menu.png");
+LevelSelect::LevelSelect(RenderWindow& win) : window(win), selectedLevel(0) {
+    backgroundTexture.loadFromFile("assets/images/BGlevels.png");
     background.setTexture(backgroundTexture);
 
     lvlTexture.loadFromFile("assets/images/levels.png");
     lvl.setTexture(lvlTexture);
-    lvl.setPosition(680.f, 20.f);
+    lvl.setPosition(610.f, 50.f);
     lvl.setScale(1.0f, 1.0f);
 
     backTexture.loadFromFile("assets/images/back.png");
@@ -17,14 +21,14 @@ LevelSelect::LevelSelect(sf::RenderWindow& win) : window(win) {
     backButton.setScale(0.18f, 0.18f);
 
     for (int i = 0; i < 5; ++i) {
-        levelTextures[i].loadFromFile("assets/images/" + std::to_string(i + 1) + ".png");
+        levelTextures[i].loadFromFile("assets/images/" + to_string(i + 1) + ".png");
         levelButtons[i].setTexture(levelTextures[i]);
 
         if (i % 2 == 0) {
-            levelButtons[i].setPosition(190.f + (i * 320.f), 300.f);
+            levelButtons[i].setPosition(180.f + (i * 320.f), 300.f);
         }
         else {
-            levelButtons[i].setPosition(190.f + (i * 320.f), 400.f);
+            levelButtons[i].setPosition(180.f + (i * 320.f), 400.f);
         }
         levelButtons[i].setScale(0.7f, 0.7f);
 
@@ -39,22 +43,29 @@ void LevelSelect::run() {
         processEvents();
         update();
         render();
-        if (selectedLevel != 0 || selectedLevel == -1) { // -1 для кнопки "Назад"
+        if (selectedLevel != 0 || selectedLevel == -1) {
             break;
+        }
+    }
+
+    if (selectedLevel > 0) {
+        if (Game::getInstance() && Game::getInstance()->getSettings()) {
+            Game::getInstance()->getSettings()->incrementAttempts();
+            Game::getInstance()->getSettings()->saveSettings();
         }
     }
 }
 
 void LevelSelect::processEvents() {
-    sf::Event event;
+    Event event;
     while (window.pollEvent(event)) {
-        if (event.type == sf::Event::Closed) {
+        if (event.type == Event::Closed) {
             window.close();
         }
 
-        if (event.type == sf::Event::MouseButtonPressed) {
+        if (event.type == Event::MouseButtonPressed) {
             if (isMouseOver(backButton)) {
-                selectedLevel = -1; // Устанавливаем -1 для кнопки "Назад"
+                selectedLevel = -1;
                 return;
             }
             for (int i = 0; i < 5; ++i) {
@@ -71,28 +82,34 @@ void LevelSelect::update() {
 
     for (int i = 0; i < 5; ++i) {
         if (isMouseOver(levelButtons[i])) {
-            levelButtons[i].setColor(sf::Color(255, 200, 255, 255));
+            levelButtons[i].setColor(Color(255, 200, 255, 255));
             isHoveringNow = true;
         }
         else {
-            levelButtons[i].setColor(sf::Color::White);
+            levelButtons[i].setColor(Color::White);
         }
     }
 
     if (isMouseOver(backButton)) {
-        backButton.setColor(sf::Color(255, 200, 255, 255));
+        backButton.setColor(Color(255, 200, 255, 255));
         isHoveringNow = true;
     }
     else {
-        backButton.setColor(sf::Color::White);
+        backButton.setColor(Color::White);
     }
 
-    // Воспроизводим звук только при новом наведении
     if (isHoveringNow && !wasHovering) {
-        hoverSound.play();
+        float sfxVolume = 100.f;
+        if (Game::getInstance() && Game::getInstance()->getSettings()) {
+            sfxVolume = Game::getInstance()->getSettings()->getSFXVolume();
+        }
+        hoverSounds[hoverSoundIndex].setBuffer(hoverBuffer);
+        hoverSounds[hoverSoundIndex].setVolume(sfxVolume);
+        hoverSounds[hoverSoundIndex].play();
+        hoverSoundIndex = (hoverSoundIndex + 1) % HOVER_SOUND_POOL;
     }
 
-    wasHovering = isHoveringNow; // Обновляем флаг
+    wasHovering = isHoveringNow; 
 }
 
 void LevelSelect::render() {
@@ -106,9 +123,9 @@ void LevelSelect::render() {
     window.display();
 }
 
-bool LevelSelect::isMouseOver(const sf::Sprite& sprite) {
-    sf::FloatRect bounds = sprite.getGlobalBounds();
-    return bounds.contains(static_cast<sf::Vector2f>(sf::Mouse::getPosition(window)));
+bool LevelSelect::isMouseOver(const Sprite& sprite) {
+    FloatRect bounds = sprite.getGlobalBounds();
+    return bounds.contains(Vector2f(Mouse::getPosition(window)));
 }
 
 int LevelSelect::getSelectedLevel() const {

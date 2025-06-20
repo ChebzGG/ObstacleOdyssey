@@ -1,15 +1,19 @@
 // Menu.cpp
 #include "Menu.h"
 #include "LevelSelect.h"
+#include "Stats.h"
+#include "Custom.h"
 #include <iostream>
+using namespace std;
+using namespace sf;
 
-Menu::Menu(sf::RenderWindow& win) : window(win) {
+Menu::Menu(RenderWindow& win) : window(win) {
     backgroundTexture.loadFromFile("assets/images/menu.png");
     background.setTexture(backgroundTexture);
 
     logoTexture.loadFromFile("assets/images/logo.png");
     logo.setTexture(logoTexture);
-    logo.setPosition(150.f, 50.f);
+    logo.setPosition(155.f, 50.f);
 
     playTexture.loadFromFile("assets/images/play.png");
     playButton.setTexture(playTexture);
@@ -21,7 +25,7 @@ Menu::Menu(sf::RenderWindow& win) : window(win) {
     customButton.setPosition(360.f, 415.f);
     customButton.setScale(0.7f, 0.7f);
 
-    settingsTexture.loadFromFile("assets/images/settings.png");
+    settingsTexture.loadFromFile("assets/images/setting.png");
     settingsButton.setTexture(settingsTexture);
     settingsButton.setPosition(1280.f, 415.f);
     settingsButton.setScale(0.7f, 0.7f);
@@ -51,22 +55,30 @@ void Menu::run() {
             break;
         }
     }
+
+    if (selectedOption == 2) { 
+        Custom customMenu(window);
+        customMenu.run(); 
+    }
 }
 
 
 void Menu::processEvents() {
-    sf::Event event;
+    Event event;
     while (window.pollEvent(event)) {
-        if (event.type == sf::Event::Closed) {
+        if (event.type == Event::Closed) {
             window.close();
         }
 
-        if (event.type == sf::Event::MouseButtonPressed) {
+        if (event.type == Event::MouseButtonPressed) {
             if (isMouseOver(playButton)) selectedOption = 1;
             else if (isMouseOver(customButton)) selectedOption = 2;
-            else if (isMouseOver(settingsButton)) selectedOption = 3;  // Настройки
+            else if (isMouseOver(settingsButton)) selectedOption = 3;
             else if (isMouseOver(exitButton)) window.close();
-            else if (isMouseOver(statsButton)) selectedOption = 4;
+            else if (isMouseOver(statsButton)) {
+                Stats statsMenu(window);
+                statsMenu.run();
+            }
         }
     }
 }
@@ -91,56 +103,62 @@ void Menu::handleMouseHover() {
     bool isHoveringNow = false;
 
     if (isMouseOver(playButton)) {
-        playButton.setColor(sf::Color(255, 200, 255, 255));
+        playButton.setColor(Color(255, 200, 255, 255));
         isHoveringNow = true;
     }
     else {
-        playButton.setColor(sf::Color::White);
+        playButton.setColor(Color::White);
     }
 
     if (isMouseOver(customButton)) {
-        customButton.setColor(sf::Color(255, 200, 255, 255));
+        customButton.setColor(Color(255, 200, 255, 255));
         isHoveringNow = true;
     }
     else {
-        customButton.setColor(sf::Color::White);
+        customButton.setColor(Color::White);
     }
 
     if (isMouseOver(settingsButton)) {
-        settingsButton.setColor(sf::Color(255, 200, 255, 255));
+        settingsButton.setColor(Color(255, 200, 255, 255));
         isHoveringNow = true;
     }
     else {
-        settingsButton.setColor(sf::Color::White);
+        settingsButton.setColor(Color::White);
     }
 
     if (isMouseOver(exitButton)) {
-        exitButton.setColor(sf::Color(255, 200, 255, 255));
+        exitButton.setColor(Color(255, 200, 255, 255));
         isHoveringNow = true;
     }
     else {
-        exitButton.setColor(sf::Color::White);
+        exitButton.setColor(Color::White);
     }
 
     if (isMouseOver(statsButton)) {
-        statsButton.setColor(sf::Color(255, 200, 255, 255));
+        statsButton.setColor(Color(255, 200, 255, 255));
         isHoveringNow = true;
     }
     else {
-        statsButton.setColor(sf::Color::White);
+        statsButton.setColor(Color::White);
     }
 
-    // Воспроизводим звук только при новом наведении
     if (isHoveringNow && !wasHovering) {
-        hoverSound.play();
+        float sfxVolume = 100.f;
+        if (Game::getInstance() && Game::getInstance()->getSettings()) {
+            sfxVolume = Game::getInstance()->getSettings()->getSFXVolume();
+        }
+        hoverSounds[hoverSoundIndex].setBuffer(hoverBuffer);
+        hoverSounds[hoverSoundIndex].setVolume(sfxVolume);
+        hoverSounds[hoverSoundIndex].play();
+        hoverSoundIndex = (hoverSoundIndex + 1) % HOVER_SOUND_POOL;
     }
 
-    wasHovering = isHoveringNow; // Обновляем флаг
+    wasHovering = isHoveringNow;
 }
 
-bool Menu::isMouseOver(const sf::Sprite& sprite) {
-    sf::FloatRect bounds = sprite.getGlobalBounds();
-    return bounds.contains(static_cast<sf::Vector2f>(sf::Mouse::getPosition(window)));
+bool Menu::isMouseOver(const Sprite& sprite) {
+    FloatRect bounds = sprite.getGlobalBounds();
+    return bounds.contains(Vector2f(Mouse::getPosition(window)));
 }
 
 int Menu::getMenuSelection() const {

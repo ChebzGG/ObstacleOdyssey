@@ -1,71 +1,89 @@
-//Level.h
 #pragma once
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
 #include <string>
-
-const int SIZE_X = 1000;
-const int SIZE_Y = 10;
 
 class Level {
 public:
     Level(const std::string& levelFile, const std::string& musicFile);
     ~Level();
 
-    void load();
     void update();
     void render(sf::RenderWindow& window);
+
     void restart();
-    void playMusic();
-    void stopMusic();
-    bool isCompleted() const;
     bool isFailed() const;
-    int getCoinsCollected() const;
+    bool isCompleted() const;
+    void setPaused(bool paused);
+    void playMusic();
+    void pauseMusic();
+    void stopMusic();
+    void setMusicVolume(float volume);
+
+
     int getJumpCount() const;
-    void pauseMusic(); // Добавляем этот метод
 
-    float getMusicVolume() const { return music.getVolume(); }
-    void setMusicVolume(float volume) { if (musicLoaded) music.setVolume(volume); }
 private:
-    void setLevel();
-    void setEndPosition();
-    void handleInput();
-    void handlePhysics();
-    void checkCollisions();
-    void resetPlayer();
+    static const int SIZE_X = 1000;
+    static const int SIZE_Y = 10;
+    char level[SIZE_X][SIZE_Y];
 
-    char level[SIZE_X][SIZE_Y]{};
-    int endPos = 0;
-    int coinsCollected = 0;
+    static const int GROUND_COUNT = 13;
+    sf::Texture groundSquareTexture;
+    sf::Sprite ground[GROUND_COUNT];
 
-    sf::Texture spikeTex, blockTex, shortSpikeTex, endwallTex, iconTex, jumpPadTex, orbTex, coinTex;
-    sf::Sprite spike, block, shortSpike, endwall, icon, jumpPad, orb, coin;
-    sf::RectangleShape iconHitbox, iconBlockHitbox;
-    sf::RectangleShape groundLine;
+    sf::RectangleShape player;
+    float playerY, playerVelocityY;
+    bool isOnGround, isJumping, failed, completed, paused;
+    int jumpCount;
+    float levelPos;
+    float playerRotation = 0.0f;
+    int endPos;
+    void drawGroundSquare(sf::RenderWindow& window, float x, float y, float size);
 
-    sf::Music music;
-    sf::SoundBuffer deathBuffer, coinBuffer, jumpBuffer;
-    sf::Sound death, coinSound, jumpSound;
+    sf::RectangleShape spike, spike2, shortSpike, endWall;
+    sf::Texture spikeTexture, spike2Texture;
 
+
+
+
+    sf::Texture endWallTexture;
+
+
+    sf::Texture blockTexture0, blockTexture1, blockTexture2, blockTexture3, blockTexture4, blockTexture5, 
+        blockTexture6, blockTexture7, blockTexture8, blockTexture9, blockTexture10, 
+        blockTexture11, blockTexture12, blockTexture13, blockTexture14, blockTexture15;
+
+    sf::RectangleShape block0, block1, block2, block3, block4, block5, 
+        block6, block7, block8, block9, block10, block11, 
+        block12, block13, block14, block15;;
+
+    sf::Texture shortSpikeTexture;
+    sf::Texture iconTexture;
     sf::Texture backgroundTexture;
     sf::Sprite backgroundSprite;
 
-    float levelSpeed = 9.6f;
-    float levelPos = 0;
-    float jumpCount = 0;
-    float jumpHeight = 0;
+    sf::Texture coinTexture;
+    sf::SoundBuffer coinBuffer;
+    sf::Sound coinSound;
+    sf::RectangleShape coinShape;
+    bool coinCollected[SIZE_X][SIZE_Y] = { {false} };
 
-    int iconDefaultY;
-    int iconGroundDefaultY;
-    bool iconAlive = true;
-    bool isGrounded = true;
-    bool jumpCheck = false;
-    bool fall = false;
-    bool completed = false;
-    bool failed = false;
+    sf::SoundBuffer deathBuffer;
+    sf::Sound deathSound;
 
-    std::string levelPath;
-    std::string musicPath;
+    sf::SoundBuffer winBuffer;
+    sf::Sound winSound;
 
-    bool musicLoaded = false; // Флаг для проверки загрузки музыки
+    sf::Music music;
+
+    void loadLevel(const std::string& filename);
+    void setEnd();
+    void resetPlayer();
+    void handleInput();
+    void handlePhysics();
+    void handleCollisions();
+    void drawObstacles(sf::RenderWindow& window);
+    bool checkCollision(const sf::FloatRect& a, const sf::FloatRect& b) const;
+
 };

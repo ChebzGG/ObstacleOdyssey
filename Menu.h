@@ -46,4 +46,8 @@ private:
     sf::SoundBuffer hoverBuffer;
     sf::Sound hoverSound;
     bool wasHovering = false;
+
+    static const int HOVER_SOUND_POOL = 15;
+    sf::Sound hoverSounds[HOVER_SOUND_POOL];
+    int hoverSoundIndex = 0;
 };

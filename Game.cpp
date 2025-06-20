@@ -2,11 +2,13 @@
 #include "Game.h"
 #include "Settings.h"
 #include <iostream>
+using namespace std;
+using namespace sf;
 
 Game* Game::instance = nullptr;
 
 Game::Game()
-    : window(sf::VideoMode(1920, 1080), "Obstacle Odyssey"),
+    : window(VideoMode(1920, 1080), "Obstacle Odyssey", Style::Fullscreen/**/),
     menu(window),
     currentLevel(-1),
     isPaused(false),
@@ -15,61 +17,48 @@ Game::Game()
 
     instance = this;
 
-
-    std::ifstream file("settings.cfg");
-    float volume = 100.f; // Значение по умолчанию, если файл не найден
+    ifstream file("settings.txt");
+    float volume = 100.f; 
     if (file.is_open()) {
         file >> volume;
         file.close();
     }
 
-    // Инициализация музыки меню
-    if (!menuMusic.openFromFile("assets/music/menu.ogg")) {
-        std::cerr << "Failed to load menu music" << std::endl;
-    }
+    menuMusic.openFromFile("assets/music/menu.ogg");
     menuMusic.setLoop(true);
-    menuMusic.setVolume(volume); // Устанавливаем громкость из файла
+    menuMusic.setVolume(volume); 
     menuMusic.play();
 
-
-
-    // Инициализация уровней
     for (int i = 0; i < 5; ++i) {
         levels[i] = nullptr;
     }
 
-
-    // Загрузка текстур для паузы
-    if (!pauseBackgroundTexture.loadFromFile("assets/images/pause.png")) {
-        std::cerr << "Failed to load pause background" << std::endl;
-    }
+    pauseBackgroundTexture.loadFromFile("assets/images/BGpause.png");
     pauseBackground.setTexture(pauseBackgroundTexture);
 
-    if (!resumeButtonTexture.loadFromFile("assets/images/resume.png")) {
-        std::cerr << "Failed to load resume button" << std::endl;
-    }
+    resumeButtonTexture.loadFromFile("assets/images/resume.png");
     resumeButton.setTexture(resumeButtonTexture);
     resumeButton.setPosition(1020.f, 340.f);
 
-    if (!exitButtonTexture.loadFromFile("assets/images/exit2.png")) {
-        std::cerr << "Failed to load exit button" << std::endl;
-    }
+    exitButtonTexture.loadFromFile("assets/images/exit2.png");
     exitButton.setTexture(exitButtonTexture);
     exitButton.setPosition(500.f, 340.f);
 
     window.setFramerateLimit(60);
 
-    // Загрузка уровней
-    levels[0] = new Level("levels/level1.txt", "assets/music/level1.ogg");
-    levels[1] = new Level("levels/level2.txt", "assets/music/level2.ogg");
-    levels[2] = new Level("levels/level3.txt", "assets/music/level3.ogg");
-    levels[3] = new Level("levels/level4.txt", "assets/music/level4.ogg");
-    levels[4] = new Level("levels/level5.txt", "assets/music/level5.ogg");
 }
+
+Settings* Game::getSettings() {
+    if (!settings) { 
+        settings = new Settings(window); 
+    }
+    return settings;
+}
+
 
 Game::~Game() {
     for (int i = 0; i < 5; ++i) {
-        delete levels[i]; // Удаление nullptr безопасно
+        delete levels[i];
     }
     delete settings;
 }
@@ -95,7 +84,6 @@ void Game::handleMenuState() {
         switch (menuSelection) {
         case 1: handleLevelSelection(); break;
         case 3: handleSettings(); break;
-        case 4: showStatistics(); break;
         case -1: window.close(); break;
         }
     }
@@ -118,9 +106,8 @@ void Game::handleSettings() {
         settings = new Settings(window);
     }
 
-    settings->run(); // После выхода из run() продолжится выполнение
+    settings->run();
 
-    // Применяем новые настройки
     menuMusic.setVolume(settings->getMusicVolume());
 
     if (currentLevel >= 0 && currentLevel < 5 && levels[currentLevel]) {
@@ -129,32 +116,39 @@ void Game::handleSettings() {
 }
 
 void Game::startLevel() {
-    if (currentLevel < 0 || currentLevel >= 5 || !levels[currentLevel]) return;
+    if (currentLevel < 0 || currentLevel >= 5) return;
+
+    delete levels[currentLevel];
+
+    string levelPath = "assets/levels/level" + to_string(currentLevel + 1) + ".txt";
+    string musicPath = "assets/music/level" + to_string(currentLevel + 1) + ".ogg";
+    levels[currentLevel] = new Level(levelPath, musicPath);
+
+    float volume = settings ? settings->getMusicVolume() : 100.f;
+    levels[currentLevel]->setMusicVolume(volume);
 
     menuMusic.stop();
     levels[currentLevel]->playMusic();
-    if (settings) {
-        levels[currentLevel]->setMusicVolume(settings->getMusicVolume());
-    }
     isPaused = false;
     levelClock.restart();
 
     while (window.isOpen() && !inMenu) {
         processEvents();
 
-        if (levels[currentLevel]->isFailed()) {
+        if (currentLevel >= 0 && currentLevel < 5 && levels[currentLevel] && levels[currentLevel]->isFailed()) {
             showGameOverMenu();
             continue;
         }
 
-        if (levels[currentLevel]->isCompleted()) {
-            returnToMainMenu();
-            break;
+        if (currentLevel >= 0 && currentLevel < 5 && levels[currentLevel] && levels[currentLevel]->isCompleted()) {
+            showVictoryMenu();
+            continue;
         }
 
         update();
         render();
     }
+
 }
 
 void Game::handleGameState() {
@@ -164,13 +158,15 @@ void Game::handleGameState() {
 }
 
 void Game::processEvents() {
-    sf::Event event;
+    Event event;
     while (window.pollEvent(event)) {
-        if (event.type == sf::Event::Closed) {
+        if (event.type == Event::Closed) {
             window.close();
         }
-        if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape) {
+
+        if (event.type == Event::KeyPressed && event.key.code == Keyboard::Escape) {
             isPaused = !isPaused;
+            levels[currentLevel]->setPaused(isPaused);
             if (isPaused) {
                 levels[currentLevel]->pauseMusic();
             }
@@ -178,8 +174,36 @@ void Game::processEvents() {
                 levels[currentLevel]->playMusic();
             }
         }
+
+        if (isPaused && event.type == Event::MouseButtonPressed && event.mouseButton.button == Mouse::Left) {
+            Vector2f mousePos = Vector2f(Mouse::getPosition(window));
+
+            if (resumeButton.getGlobalBounds().contains(mousePos)) {
+                isPaused = false;
+                levels[currentLevel]->setPaused(false);
+                levels[currentLevel]->playMusic();
+            }
+            else if (exitButton.getGlobalBounds().contains(mousePos)) {
+                levels[currentLevel]->stopMusic();
+                levels[currentLevel]->setPaused(false);
+                currentLevel = -1;
+                isPaused = false;
+                inMenu = true;
+
+                ifstream file("settings.txt");
+                float volume = 100.f;
+                if (file.is_open()) {
+                    file >> volume;
+                    file.close();
+                }
+                menuMusic.setVolume(volume);
+                menuMusic.play();
+            }
+        }
     }
 }
+
+
 
 void Game::update() {
     if (isPaused) {
@@ -208,10 +232,10 @@ void Game::render() {
 
 void Game::showPauseMenu() {
     while (isPaused && window.isOpen()) {
-        sf::Event event;
+        Event event;
         while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed) window.close();
-            if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape) {
+            if (event.type == Event::Closed) window.close();
+            if (event.type == Event::KeyPressed && event.key.code == Keyboard::Escape) {
                 isPaused = false;
                 levels[currentLevel]->playMusic();
             }
@@ -220,21 +244,18 @@ void Game::showPauseMenu() {
     }
 }
 
+
+
+
 void Game::showGameOverMenu() {
     if (currentLevel < 0 || currentLevel >= 5 || !levels[currentLevel]) return;
 
-    sf::Texture resetTexture, retryTexture, exitTexture;
-    sf::Sprite resetBackground, retryButton, exitButton;
+    Texture resetTexture, retryTexture, exitTexture;
+    Sprite resetBackground, retryButton, exitButton;
 
-    if (!resetTexture.loadFromFile("assets/images/reset.png")) {
-        std::cerr << "Failed to load reset texture" << std::endl;
-    }
-    if (!retryTexture.loadFromFile("assets/images/retry.png")) {
-        std::cerr << "Failed to load retry texture" << std::endl;
-    }
-    if (!exitTexture.loadFromFile("assets/images/exit2.png")) {
-        std::cerr << "Failed to load exit texture" << std::endl;
-    }
+    resetTexture.loadFromFile("assets/images/BGlost.png");
+    retryTexture.loadFromFile("assets/images/retry.png");
+    exitTexture.loadFromFile("assets/images/exit2.png");
 
     resetBackground.setTexture(resetTexture);
     retryButton.setTexture(retryTexture);
@@ -244,18 +265,18 @@ void Game::showGameOverMenu() {
     exitButton.setPosition(500.f, 340.f);
 
     while (window.isOpen()) {
-        sf::Event event;
+        Event event;
         while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed) window.close();
+            if (event.type == Event::Closed) window.close();
         }
 
 
 
-        retryButton.setColor(isMouseOver(retryButton) ? sf::Color(255, 200, 255, 255) : sf::Color::White);
-        exitButton.setColor(isMouseOver(exitButton) ? sf::Color(255, 200, 255, 255) : sf::Color::White);
+        retryButton.setColor(isMouseOver(retryButton) ? Color(255, 200, 255, 255) : Color::White);
+        exitButton.setColor(isMouseOver(exitButton) ? Color(255, 200, 255, 255) : Color::White);
 
-        if (sf::Mouse::isButtonPressed(sf::Mouse::Left)) {
-            sf::Vector2f mousePos = static_cast<sf::Vector2f>(sf::Mouse::getPosition(window));
+        if (Mouse::isButtonPressed(Mouse::Left)) {
+            Vector2f mousePos = Vector2f(Mouse::getPosition(window));
             if (retryButton.getGlobalBounds().contains(mousePos)) {
                 levels[currentLevel]->restart();
                 levelClock.restart();
@@ -272,22 +293,53 @@ void Game::showGameOverMenu() {
         window.draw(retryButton);
         window.draw(exitButton);
 
-        // Отображение статистики
-        sf::Font font;
-        if (font.loadFromFile("assets/fonts/arial.ttf")) {
-            sf::Text jumpText, timeText;
-            jumpText.setFont(font);
-            timeText.setFont(font);
-            jumpText.setString("Jump Count: " + std::to_string(levels[currentLevel]->getJumpCount()));
-            timeText.setString("Time Spent: " + std::to_string(static_cast<int>(levelClock.getElapsedTime().asSeconds())) + " sec");
-            jumpText.setCharacterSize(40);
-            timeText.setCharacterSize(40);
-            jumpText.setPosition(800.f, 600.f);
-            timeText.setPosition(800.f, 650.f);
+        window.display();
+    }
+}
 
-            window.draw(jumpText);
-            window.draw(timeText);
+void Game::showVictoryMenu() {
+    Texture winTexture, retryTexture, exitTexture;
+    Sprite winBackground, retryButton, exitButton;
+
+    winTexture.loadFromFile("assets/images/BGwin.png");
+    retryTexture.loadFromFile("assets/images/retry.png");
+    exitTexture.loadFromFile("assets/images/exit2.png");
+
+    winBackground.setTexture(winTexture);
+    retryButton.setTexture(retryTexture);
+    exitButton.setTexture(exitTexture);
+
+    retryButton.setPosition(1020.f, 340.f);
+    exitButton.setPosition(500.f, 340.f);
+
+    while (window.isOpen()) {
+        Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == Event::Closed) window.close();
         }
+
+        retryButton.setColor(isMouseOver(retryButton) ? Color(255, 200, 255, 255) : Color::White);
+        exitButton.setColor(isMouseOver(exitButton) ? Color(255, 200, 255, 255) : Color::White);
+
+        if (Mouse::isButtonPressed(Mouse::Left)) {
+            Vector2f mousePos = Vector2f(Mouse::getPosition(window));
+            if (retryButton.getGlobalBounds().contains(mousePos)) {
+                levels[currentLevel]->restart();
+                levelClock.restart();
+                return;
+            }
+            else if (exitButton.getGlobalBounds().contains(mousePos)) {
+                returnToMainMenu();
+                return;
+            }
+        }
+
+        window.clear();
+        window.draw(winBackground);
+        window.draw(retryButton);
+        window.draw(exitButton);
+
+
 
         window.display();
     }
@@ -301,8 +353,7 @@ void Game::returnToMainMenu() {
     currentLevel = -1;
     isPaused = false;
 
-    // Восстанавливаем громкость меню
-    std::ifstream file("settings.cfg");
+    ifstream file("settings.txt");
     float volume = 100.f;
     if (file.is_open()) {
         file >> volume;
@@ -312,34 +363,6 @@ void Game::returnToMainMenu() {
     menuMusic.play();
 }
 
-void Game::showStatistics() {
-    sf::RenderWindow statsWindow(sf::VideoMode(800, 600), "Statistics");
-    sf::Font font;
-    if (!font.loadFromFile("assets/fonts/arial.ttf")) {
-        return;
-    }
-
-    sf::Text statsText;
-    statsText.setFont(font);
-    statsText.setString("Game Statistics\n\nComing Soon...");
-    statsText.setCharacterSize(40);
-    statsText.setPosition(100.f, 100.f);
-    statsText.setFillColor(sf::Color::White);
-
-    while (statsWindow.isOpen()) {
-        sf::Event event;
-        while (statsWindow.pollEvent(event)) {
-            if (event.type == sf::Event::Closed) {
-                statsWindow.close();
-            }
-        }
-
-        statsWindow.clear(sf::Color(50, 50, 70));
-        statsWindow.draw(statsText);
-        statsWindow.display();
-    }
-}
-
 void Game::returnToSettings() {
     inMenu = true;
     currentLevel = -1;
@@ -347,25 +370,24 @@ void Game::returnToSettings() {
 }
 
 void Game::handleMouseHover() {
-    resumeButton.setColor(isMouseOver(resumeButton) ? sf::Color(255, 200, 255, 255) : sf::Color::White);
-    exitButton.setColor(isMouseOver(exitButton) ? sf::Color(255, 200, 255, 255) : sf::Color::White);
+    resumeButton.setColor(isMouseOver(resumeButton) ? Color(255, 200, 255, 255) : Color::White);
+    exitButton.setColor(isMouseOver(exitButton) ? Color(255, 200, 255, 255) : Color::White);
 }
 
-bool Game::isMouseOver(const sf::Sprite& sprite) const {
-    sf::FloatRect bounds = sprite.getGlobalBounds();
-    return bounds.contains(static_cast<sf::Vector2f>(sf::Mouse::getPosition(window)));
+bool Game::isMouseOver(const Sprite& sprite) const {
+    FloatRect bounds = sprite.getGlobalBounds();
+    return bounds.contains(Vector2f(Mouse::getPosition(window)));
 }
 
 void Game::setMusicVolume(float volume) {
-    // Устанавливаем громкость для меню
     menuMusic.setVolume(volume);
 
-    // Устанавливаем громкость для текущего уровня (если он активен)
-    if (currentLevel >= 0 && currentLevel < 5 && levels[currentLevel]) {
-        levels[currentLevel]->setMusicVolume(volume);
+    for (int i = 0; i < 5; ++i) {
+        if (levels[i]) {
+            levels[i]->setMusicVolume(volume);
+        }
     }
 
-    // Сохраняем громкость в настройках (если они есть)
     if (settings) {
         settings->setMusicVolume(volume);
     }
